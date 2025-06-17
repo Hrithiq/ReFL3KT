@@ -2,11 +2,12 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
 from django.core.exceptions import ValidationError
+from datetime import timedelta
 
 class Category(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='time_categories', null=True, blank=True)
     name = models.CharField(max_length=100)
-    color = models.CharField(max_length=7, default="#FFFFFF")
+    color = models.CharField(max_length=7, default="#000000")  # Hex color code
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -15,24 +16,24 @@ class Category(models.Model):
         unique_together = ['user', 'name']
 
     def __str__(self):
-        return f"{self.name}"
+        return self.name
 
 class TimeEntry(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='time_entries', null=True, blank=True)
-    description = models.TextField()
+    description = models.TextField(blank=True)
+    category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True)
     start_time = models.DateTimeField()
     end_time = models.DateTimeField(null=True, blank=True)
-    category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, related_name='time_entries')
+    is_active = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    is_active = models.BooleanField(default=True)
 
     class Meta:
         verbose_name_plural = "Time Entries"
         ordering = ['-start_time']
 
     def __str__(self):
-        return f"Entry: {self.description[:50]}"
+        return f"{self.description} - {self.start_time}"
 
     def clean(self):
         if self.end_time and self.start_time >= self.end_time:

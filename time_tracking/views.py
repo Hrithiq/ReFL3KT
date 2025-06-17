@@ -3,9 +3,10 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 from django.utils import timezone
-from django.db.models import Sum, Q, F
-from datetime import timedelta
+from django.db.models import Sum, Q, F, DurationField
+from datetime import timedelta, datetime
 from django.shortcuts import get_object_or_404
+from collections import defaultdict
 from .models import Category, TimeEntry
 from .serializers import CategorySerializer, TimeEntrySerializer
 
@@ -14,13 +15,16 @@ class CategoryViewSet(viewsets.ModelViewSet):
     permission_classes = [AllowAny]
 
     def get_queryset(self):
-        return Category.objects.all().order_by('name')
+        user_id = self.kwargs.get('user_id')
+        return Category.objects.filter(user_id=user_id).order_by('name')
 
     def perform_create(self, serializer):
-        serializer.save()  # No user assignment
+        user_id = self.kwargs.get('user_id')
+        serializer.save(user_id=user_id)
 
     def perform_update(self, serializer):
-        serializer.save()  # No user assignment
+        user_id = self.kwargs.get('user_id')
+        serializer.save(user_id=user_id)
 
     def perform_destroy(self, instance):
         # Check if category is in use
@@ -31,17 +35,84 @@ class CategoryViewSet(viewsets.ModelViewSet):
             )
         instance.delete()
 
+    @action(detail=True, methods=['get'])
+    def analytics(self, request, user_id=None, pk=None):
+        category = self.get_object()
+        start_date = request.query_params.get('_startTime')
+        end_date = request.query_params.get('_endTime')
+
+        if not start_date or not end_date:
+            return Response(
+                {"error": "_startTime and _endTime are required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            start_date = timezone.datetime.strptime(start_date, '%Y-%m-%d')
+            end_date = timezone.datetime.strptime(end_date, '%Y-%m-%d')
+        except ValueError:
+            return Response(
+                {"error": "Invalid date format. Use YYYY-MM-DD"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Get all entries for this category
+        entries = TimeEntry.objects.filter(
+            category=category,
+            user_id=user_id,
+            start_time__gte=start_date,
+            start_time__lte=end_date
+        ).order_by('start_time')
+
+        # Group entries by description
+        grouped_entries = defaultdict(timedelta)
+        for entry in entries:
+            grouped_entries[entry.description] += entry.duration
+
+        # Calculate daily stats
+        daily_stats = defaultdict(timedelta)
+        for entry in entries:
+            date_str = entry.start_time.date().isoformat()
+            daily_stats[date_str] += entry.duration
+
+        # Calculate total duration
+        total_duration = sum(grouped_entries.values(), timedelta())
+
+        # Format the response
+        response_data = {
+            'category': {
+                '_categoryId': category.id,
+                '_name': category.name,
+                '_color': category.color,
+                '_userId': user_id
+            },
+            'total_duration': str(total_duration),
+            'daily_stats': {
+                date: str(duration) for date, duration in daily_stats.items()
+            },
+            'grouped_entries': [
+                {
+                    '_description': description,
+                    '_duration': str(duration)
+                }
+                for description, duration in grouped_entries.items()
+            ],
+            'time_entries': TimeEntrySerializer(entries, many=True).data
+        }
+
+        return Response(response_data)
+
 class TimeEntryViewSet(viewsets.ModelViewSet):
     serializer_class = TimeEntrySerializer
     permission_classes = [AllowAny]
 
     def get_queryset(self):
-        queryset = TimeEntry.objects.all()
+        user_id = self.kwargs.get('user_id')
+        queryset = TimeEntry.objects.filter(user_id=user_id)
         
-        # Add filtering options
-        category_id = self.request.query_params.get('category_id')
-        start_date = self.request.query_params.get('start_date')
-        end_date = self.request.query_params.get('end_date')
+        category_id = self.request.query_params.get('_categoryId')
+        start_date = self.request.query_params.get('_startTime')
+        end_date = self.request.query_params.get('_endTime')
         
         if category_id:
             queryset = queryset.filter(category_id=category_id)
@@ -63,52 +134,73 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
         return queryset.order_by('-start_time')
 
     def perform_create(self, serializer):
-        # Deactivate any existing active entries
-        TimeEntry.objects.filter(is_active=True).update(is_active=False)
-        serializer.save(is_active=True)  # No user assignment
+        user_id = self.kwargs.get('user_id')
+        TimeEntry.objects.filter(user_id=user_id, is_active=True).update(is_active=False)
+        serializer.save(user_id=user_id, is_active=True)
 
     def perform_update(self, serializer):
-        serializer.save()  # No user assignment
+        user_id = self.kwargs.get('user_id')
+        serializer.save(user_id=user_id)
 
     def perform_destroy(self, instance):
         instance.delete()
 
     @action(detail=False, methods=['get'])
-    def current_time_entry(self, request):
+    def current_time_entry(self, request, user_id=None):
         try:
-            entry = TimeEntry.objects.get(is_active=True)
+            entry = TimeEntry.objects.get(user_id=user_id, is_active=True)
             serializer = self.get_serializer(entry)
             return Response(serializer.data)
         except TimeEntry.DoesNotExist:
             return Response(None)
 
     @action(detail=False, methods=['get'])
-    def recent_entries(self, request):
+    def recent_entries(self, request, user_id=None):
         # Get entries from last 7 days
-        start_date = timezone.now() - timedelta(days=7)
+        end_date = timezone.now()
+        start_date = end_date - timedelta(days=7)
+        
         entries = TimeEntry.objects.filter(
-            start_time__gte=start_date
+            user_id=user_id,
+            start_time__gte=start_date,
+            start_time__lte=end_date
         ).order_by('-start_time')
 
+        # Initialize response dictionary with all dates in the range
+        response_data = {}
+        current_date = end_date.date()
+        for _ in range(7):
+            response_data[current_date.isoformat()] = []
+            current_date -= timedelta(days=1)
+
         # Group entries by date
-        entries_by_date = {}
         for entry in entries:
             date_str = entry.start_time.date().isoformat()
-            if date_str not in entries_by_date:
-                entries_by_date[date_str] = []
-            entries_by_date[date_str].append(self.get_serializer(entry).data)
+            entry_data = {
+                "id": entry.id,
+                "description": entry.description,
+                "start_time": entry.start_time.isoformat(),
+                "end_time": entry.end_time.isoformat() if entry.end_time else None,
+                "category": entry.category.name if entry.category else "Uncategorized",
+                "is_active": entry.is_active,
+                "duration": str(entry.duration),
+                "created_at": entry.created_at.isoformat(),
+                "updated_at": entry.updated_at.isoformat(),
+                "user_id": user_id
+            }
+            response_data[date_str].append(entry_data)
 
-        return Response(entries_by_date)
+        return Response(response_data)
 
     @action(detail=False, methods=['get'])
-    def analytics(self, request):
-        start_date = request.query_params.get('start_date')
-        end_date = request.query_params.get('end_date')
-        category_id = request.query_params.get('category_id')
+    def analytics(self, request, user_id=None):
+        start_date = request.query_params.get('_startTime')
+        end_date = request.query_params.get('_endTime')
+        category_id = request.query_params.get('_categoryId')
 
         if not start_date or not end_date:
             return Response(
-                {"error": "start_date and end_date are required"},
+                {"error": "_startTime and _endTime are required"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -123,6 +215,7 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
 
         # Base query
         query = Q(
+            user_id=user_id,
             start_time__gte=start_date,
             start_time__lte=end_date
         )
@@ -132,40 +225,53 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
 
         entries = TimeEntry.objects.filter(query)
 
-        # Calculate total duration for each category
-        category_stats = {}
-        total_duration = timedelta()
+        # Group entries by description and category
+        grouped_entries = defaultdict(lambda: defaultdict(timedelta))
+        category_stats = defaultdict(timedelta)
+        daily_stats = defaultdict(lambda: defaultdict(timedelta))
         
         for entry in entries:
             category_name = entry.category.name if entry.category else "Uncategorized"
-            if category_name not in category_stats:
-                category_stats[category_name] = timedelta()
-            category_stats[category_name] += entry.duration
-            total_duration += entry.duration
-
-        # Calculate daily stats
-        daily_stats = {}
-        for entry in entries:
+            description = entry.description or "No description"
             date_str = entry.start_time.date().isoformat()
-            if date_str not in daily_stats:
-                daily_stats[date_str] = {}
             
-            category_name = entry.category.name if entry.category else "Uncategorized"
-            if category_name not in daily_stats[date_str]:
-                daily_stats[date_str][category_name] = timedelta()
+            # Group by description and category
+            grouped_entries[category_name][description] += entry.duration
+            
+            # Update category totals
+            category_stats[category_name] += entry.duration
+            
+            # Update daily stats
             daily_stats[date_str][category_name] += entry.duration
 
-        # Calculate category percentages
-        category_percentages = {}
-        if total_duration:
-            for category, duration in category_stats.items():
-                percentage = (duration.total_seconds() / total_duration.total_seconds()) * 100
-                category_percentages[category] = round(percentage, 2)
+        # Calculate total duration
+        total_duration = sum(category_stats.values(), timedelta())
 
-        return Response({
-            'category_totals': {k: str(v) for k, v in category_stats.items()},
-            'daily_stats': daily_stats,
+        # Format the response
+        response_data = {
+            'user_id': user_id,
             'total_duration': str(total_duration),
-            'category_percentages': category_percentages,
-            'total_entries': entries.count()
-        })
+            'category_totals': {
+                category: str(duration)
+                for category, duration in category_stats.items()
+            },
+            'daily_stats': {
+                date: {
+                    category: str(duration)
+                    for category, duration in categories.items()
+                }
+                for date, categories in daily_stats.items()
+            },
+            'grouped_entries': {
+                category: [
+                    {
+                        '_description': description,
+                        '_duration': str(duration)
+                    }
+                    for description, duration in descriptions.items()
+                ]
+                for category, descriptions in grouped_entries.items()
+            }
+        }
+
+        return Response(response_data)
