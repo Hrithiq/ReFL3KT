@@ -13,6 +13,32 @@ goals_router = routers.NestedDefaultRouter(router, r'goals', lookup='goal')
 goals_router.register(r'tasks', views.TaskViewSet, basename='goal-tasks')
 
 urlpatterns = [
-    path('', include(router.urls)),
-    path('', include(goals_router.urls)),
+    path('users/<int:user_id>/', include([
+        path('goals/', views.GoalViewSet.as_view({'get': 'by_user', 'post': 'by_user'})),
+        path('goals/root/', views.GoalViewSet.as_view({'get': 'root_goals'})),
+        path('goals/<int:pk>/', views.GoalViewSet.as_view({
+            'get': 'retrieve',
+            'put': 'update',
+            'patch': 'partial_update',
+            'delete': 'destroy'
+        })),
+        path('goals/<int:pk>/analytics/', views.GoalViewSet.as_view({'get': 'analytics'})),
+        path('goals/<int:pk>/tree_widget/', views.GoalViewSet.as_view({'get': 'tree_widget'})),
+        path('goals/<int:goal_id>/tasks/', views.TaskViewSet.as_view({'get': 'list', 'post': 'create'})),
+        path('goals/<int:goal_id>/tasks/<int:pk>/', views.TaskViewSet.as_view({
+            'get': 'retrieve',
+            'put': 'update',
+            'patch': 'partial_update',
+            'delete': 'destroy'
+        })),
+    ])),
+    path('group_goals/', views.GroupGoalViewSet.as_view({'get': 'list', 'post': 'create'})),
+    path('group_goals/<int:pk>/', views.GroupGoalViewSet.as_view({
+        'get': 'retrieve',
+        'put': 'update',
+        'patch': 'partial_update',
+        'delete': 'destroy'
+    })),
+    path('group_goals/<int:pk>/members/', views.GroupGoalViewSet.as_view({'put': 'update_members'})),
+    path('group_goals/user/<int:user_id>/', views.GroupGoalViewSet.as_view({'get': 'user_group_goals'})),
 ]
