@@ -55,18 +55,17 @@ class Goal(models.Model):
         return f"{self.name} ({self.user.username})"
     
     def save(self, *args, **kwargs):
-        # Only update progress if goal exists in DB
-        if self.pk:
-            if self.subgoals.exists():
-                total_progress = sum(subgoal.progress for subgoal in self.subgoals.all())
-                self.progress = total_progress / self.subgoals.count()
-            
-            if self.progress >= 100.0 and self.status != 'completed':
-                self.status = 'completed'
-                self.completed_at = timezone.now()
+        # Auto-update progress based on subgoals
+        if self.subgoals.exists():
+            total_progress = sum(subgoal.progress for subgoal in self.subgoals.all())
+            self.progress = total_progress / self.subgoals.count()
+        
+        # Mark as completed if progress is 100%
+        if self.progress >= 100.0 and self.status != 'completed':
+            self.status = 'completed'
+            self.completed_at = timezone.now()
         
         super().save(*args, **kwargs)
-
     
     @property
     def is_root(self):
@@ -98,6 +97,9 @@ class Task(models.Model):
     description = models.TextField(blank=True, null=True)
     goal = models.ForeignKey(Goal, on_delete=models.CASCADE, related_name='tasks')
     
+    # Category field - links to time tracking category
+    category = models.ForeignKey('time_tracking.Category', on_delete=models.SET_NULL, null=True, blank=True, related_name='tasks')
+    
     # Status and recurring
     status = models.CharField(max_length=20, choices=TASK_STATUS_CHOICES, default='pending')
     is_recurring = models.BooleanField(default=False)
@@ -126,6 +128,30 @@ class Task(models.Model):
         
         # Update parent goal progress
         self.goal.save()
+    
+    @property
+    def actual_time_spent(self):
+        """Calculate actual time spent on this task based on category time entries"""
+        if not self.category:
+            return 0
+        
+        from time_tracking.models import TimeEntry
+        from django.db.models import Sum
+        from datetime import timedelta
+        
+        # Get all time entries for this category
+        time_entries = TimeEntry.objects.filter(category=self.category)
+        
+        # Calculate total duration
+        total_duration = timedelta()
+        for entry in time_entries:
+            if entry.end_time:
+                total_duration += entry.end_time - entry.start_time
+            else:
+                # For active entries, calculate up to now
+                total_duration += timezone.now() - entry.start_time
+        
+        return total_duration.total_seconds() / 60  # Return in minutes
 
 class GroupGoalMember(models.Model):
     ROLE_CHOICES = [

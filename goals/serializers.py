@@ -15,14 +15,17 @@ class GroupGoalMemberSerializer(serializers.ModelSerializer):
         fields = ['id', 'user', 'role', 'joined_at']
 
 class TaskSerializer(serializers.ModelSerializer):
+    actual_time_spent = serializers.ReadOnlyField()
+    category_name = serializers.CharField(source='category.name', read_only=True)
+    
     class Meta:
         model = Task
         fields = [
-            'id', 'title', 'description', 'goal', 'status', 
-            'is_recurring', 'created_at', 'updated_at', 
-            'due_date', 'completed_at', 'estimated_time'
+            'id', 'title', 'description', 'goal', 'category', 'category_name',
+            'status', 'is_recurring', 'created_at', 'updated_at', 
+            'due_date', 'completed_at', 'estimated_time', 'actual_time_spent'
         ]
-        read_only_fields = ['created_at', 'updated_at', 'completed_at']
+        read_only_fields = ['created_at', 'updated_at', 'completed_at', 'actual_time_spent']
 
 class GoalSerializer(serializers.ModelSerializer):
     subgoals = serializers.SerializerMethodField()
@@ -111,7 +114,7 @@ class GoalAnalyticsSerializer(serializers.ModelSerializer):
 class TaskCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Task
-        fields = ['title', 'description', 'goal', 'is_recurring', 'due_date', 'estimated_time']
+        fields = ['title', 'description', 'goal', 'category', 'is_recurring', 'due_date', 'estimated_time']
         extra_kwargs = {
             'goal': {'required': False}  # <-- Add this line
         }
