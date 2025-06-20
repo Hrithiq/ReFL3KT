@@ -56,6 +56,14 @@ class GoalViewSet(viewsets.ModelViewSet):
         serializer = GoalTreeSerializer(goal)
         return Response(serializer.data)
 
+    @action(detail=False, methods=['post'], url_path='(?P<user_id>[^/.]+)')
+    def create_for_user(self, request, user_id=None):
+        serializer = GoalCreateSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(user_id=user_id)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 class TaskViewSet(viewsets.ModelViewSet):
     serializer_class = TaskSerializer
     permission_classes = [AllowAny]
