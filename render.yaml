@@ -5,15 +5,17 @@ services:
     buildCommand: |
       pip install --upgrade pip
       pip install -r requirements.txt
+      python manage.py makemigrations
+      python manage.py migrate
     startCommand: gunicorn backend.wsgi:application
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
       - key: SECRET_KEY
-        generateValue: true
+        value: G2XdAm-1yhM2gpYM2ILSwznIAq6JEFNY0fPRZXcVW6zh17Dv4DkdQFgASzRx6IDWRuU
       - key: WEB_CONCURRENCY
         value: 4
-      - key: postgresql://refl3kt_user:UM84ycuOhLZ97OICp8tKIWiK9nXE9XbT@dpg-d188agggjchc73dt14eg-a/refl3kt_db
+      - key: DATABASE_URL
         fromDatabase:
           name: refl3kt-db
           property: connectionString
@@ -22,4 +24,4 @@ databases:
   - name: refl3kt-db
     databaseName: refl3kt_db
     user: refl3kt_user
-    plan: free 
+    plan: free
