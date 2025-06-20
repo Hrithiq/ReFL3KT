@@ -9,4 +9,4 @@ gunicorn==21.2.0
 dj-database-url==2.1.0
 whitenoise==6.6.0
 setuptools>=65.5.1 
-drf-nested-routers==1.0.0
+drf-nested-routers
