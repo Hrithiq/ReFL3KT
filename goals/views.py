@@ -17,9 +17,6 @@ class GoalViewSet(viewsets.ModelViewSet):
     lookup_field = 'pk'
     
     def get_queryset(self):
-        user_id = self.kwargs.get('user_id')
-        if user_id:
-            return Goal.objects.filter(user_id=user_id)
         return Goal.objects.all()
     
     def get_serializer_class(self):
@@ -28,12 +25,10 @@ class GoalViewSet(viewsets.ModelViewSet):
         return GoalSerializer
     
     def perform_create(self, serializer):
-        user_id = self.kwargs.get('user_id')
-        serializer.save(user_id=user_id)
+        serializer.save()
     
     def perform_update(self, serializer):
-        user_id = self.kwargs.get('user_id')
-        serializer.save(user_id=user_id)
+        serializer.save()
     
     @action(detail=False, methods=['get'], url_path='root_goals/(?P<user_id>[^/.]+)')
     def root_goals(self, request, user_id=None):
@@ -56,13 +51,18 @@ class GoalViewSet(viewsets.ModelViewSet):
         serializer = GoalTreeSerializer(goal)
         return Response(serializer.data)
 
-    @action(detail=False, methods=['post'], url_path='(?P<user_id>[^/.]+)')
-    def create_for_user(self, request, user_id=None):
-        serializer = GoalCreateSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save(user_id=user_id)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    @action(detail=False, methods=['get', 'post'], url_path='user/(?P<user_id>[^/.]+)')
+    def by_user(self, request, user_id=None):
+        if request.method == 'GET':
+            goals = Goal.objects.filter(user_id=user_id)
+            serializer = self.get_serializer(goals, many=True)
+            return Response(serializer.data)
+        elif request.method == 'POST':
+            serializer = GoalCreateSerializer(data=request.data)
+            if serializer.is_valid():
+                serializer.save(user_id=user_id)
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class TaskViewSet(viewsets.ModelViewSet):
     serializer_class = TaskSerializer
