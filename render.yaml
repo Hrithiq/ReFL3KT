@@ -16,12 +16,4 @@ services:
       - key: WEB_CONCURRENCY
         value: 4
       - key: DATABASE_URL
-        fromDatabase:
-          name: refl3kt-db
-          property: connectionString
-
-databases:
-  - name: refl3kt-db
-    databaseName: refl3kt_db
-    user: refl3kt_user
-    plan: free
+        value: postgresql://postgres.iaemrjalkwqtorvnzwcd:h5Cjqev3OTit6J6B@aws-0-ap-south-1.pooler.supabase.com:6543/postgres
