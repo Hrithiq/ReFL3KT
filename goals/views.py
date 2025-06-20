@@ -14,12 +14,13 @@ from .serializers import (
 class GoalViewSet(viewsets.ModelViewSet):
     serializer_class = GoalSerializer
     permission_classes = [AllowAny]
+    lookup_field = 'pk'
     
     def get_queryset(self):
         user_id = self.kwargs.get('user_id')
         if user_id:
             return Goal.objects.filter(user_id=user_id)
-        return Goal.objects.filter(user=self.request.user)
+        return Goal.objects.all()
     
     def get_serializer_class(self):
         if self.action == 'create':
@@ -28,17 +29,11 @@ class GoalViewSet(viewsets.ModelViewSet):
     
     def perform_create(self, serializer):
         user_id = self.kwargs.get('user_id')
-        if user_id:
-            serializer.save(user_id=user_id)
-        else:
-            serializer.save(user=self.request.user)
+        serializer.save(user_id=user_id)
     
     def perform_update(self, serializer):
         user_id = self.kwargs.get('user_id')
-        if user_id:
-            serializer.save(user_id=user_id)
-        else:
-            serializer.save(user=self.request.user)
+        serializer.save(user_id=user_id)
     
     @action(detail=False, methods=['get'], url_path='root_goals/(?P<user_id>[^/.]+)')
     def root_goals(self, request, user_id=None):
@@ -64,12 +59,13 @@ class GoalViewSet(viewsets.ModelViewSet):
 class TaskViewSet(viewsets.ModelViewSet):
     serializer_class = TaskSerializer
     permission_classes = [AllowAny]
+    lookup_field = 'pk'
     
     def get_queryset(self):
         goal_id = self.kwargs.get('goal_id')
         if goal_id:
             return Task.objects.filter(goal_id=goal_id)
-        return Task.objects.filter(goal__user=self.request.user)
+        return Task.objects.all()
     
     def get_serializer_class(self):
         if self.action == 'create':
@@ -94,6 +90,7 @@ class TaskViewSet(viewsets.ModelViewSet):
 class GroupGoalViewSet(viewsets.ModelViewSet):
     serializer_class = GroupGoalCreateSerializer
     permission_classes = [AllowAny]
+    lookup_field = 'pk'
     
     def get_queryset(self):
         user_id = self.kwargs.get('user_id')
@@ -102,10 +99,7 @@ class GroupGoalViewSet(viewsets.ModelViewSet):
                 is_group_goal=True,
                 group_members__user_id=user_id
             ).distinct()
-        return Goal.objects.filter(
-            is_group_goal=True,
-            group_members__user=self.request.user
-        ).distinct()
+        return Goal.objects.filter(is_group_goal=True).distinct()
     
     def perform_create(self, serializer):
         serializer.save()
