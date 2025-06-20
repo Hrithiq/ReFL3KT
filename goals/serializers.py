@@ -92,24 +92,22 @@ class GoalAnalyticsSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'progress', 'immediate_children', 'total_time_spent']
     
     def get_immediate_children(self, obj):
-        """Get 1-level breakdown of immediate children"""
-        children = obj.subgoals.all()
-        return [
-            {
-                'goal_id': child.id,
-                'name': child.name,
-                'progress': child.progress,
-                'status': child.status
-            }
-            for child in children
-        ]
+        """Get 1-level breakdown of immediate children with time spent"""
+        result = {}
+        
+        # Add subgoals with recursive time calculation
+        for subgoal in obj.subgoals.all():
+            result[subgoal.name] = subgoal.total_time_spent_recursive
+        
+        # Add direct tasks with their time spent
+        for task in obj.tasks.all():
+            result[f"task {task.id} of goal {obj.id}"] = task.actual_time_spent
+        
+        return result
     
     def get_total_time_spent(self, obj):
-        """Calculate total time spent on this goal and its tasks"""
-        # This would integrate with your time tracking system
-        # For now, return estimated time from tasks
-        total_minutes = sum(task.estimated_time for task in obj.tasks.all())
-        return total_minutes
+        """Calculate total time spent on this goal and all its children"""
+        return obj.total_time_spent_recursive
 
 class TaskCreateSerializer(serializers.ModelSerializer):
     class Meta:

@@ -84,6 +84,21 @@ class Goal(models.Model):
             children.extend(subgoal.all_children)
         return children
 
+    @property
+    def total_time_spent_recursive(self):
+        """Calculate total time spent recursively on all tasks under this goal"""
+        total_time = 0
+        
+        # Add time from direct tasks
+        for task in self.tasks.all():
+            total_time += task.actual_time_spent
+        
+        # Add time from subgoals recursively
+        for subgoal in self.subgoals.all():
+            total_time += subgoal.total_time_spent_recursive
+        
+        return total_time
+
 class Task(models.Model):
     TASK_STATUS_CHOICES = [
         ('pending', 'Pending'),
