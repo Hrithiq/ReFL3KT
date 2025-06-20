@@ -104,5 +104,25 @@ class TimeTrackingTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("End time must be after start time", str(response.content))
 
+class TimeTrackingAPITests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='testuser', password='testpass123')
+        self.user_id = self.user.id
+        self.category = Category.objects.create(user=self.user, name="Test Category", color="#FFFFFF")
+
+    def test_create_time_entry_for_user(self):
+        url = f'/api/users/{self.user_id}/time-entries/'
+        data = {
+            "description": "Test time entry",
+            "category": self.category.id,
+            "start_time": timezone.now().isoformat(),
+            "is_active": True
+        }
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data['description'], data['description'])
+        self.assertEqual(response.data['category_id'], self.category.id)
+        self.assertTrue(response.data['is_active'])
+
 # Run tests with:
 # python manage.py test time_tracking

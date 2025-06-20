@@ -51,6 +51,7 @@ class GoalViewSet(viewsets.ModelViewSet):
         serializer = GoalTreeSerializer(goal)
         return Response(serializer.data)
 
+    # goals/views.py (partial update)
     @action(detail=False, methods=['get', 'post'], url_path='user/(?P<user_id>[^/.]+)')
     def by_user(self, request, user_id=None):
         if request.method == 'GET':
@@ -58,13 +59,17 @@ class GoalViewSet(viewsets.ModelViewSet):
             serializer = self.get_serializer(goals, many=True)
             return Response(serializer.data)
         elif request.method == 'POST':
-            data = request.data.copy()
-            serializer = GoalCreateSerializer(data=data, context={'request': request})
+            user = get_object_or_404(User, id=user_id)
+            # Pass context with request to serializer
+            serializer = GoalCreateSerializer(
+                data=request.data,
+                context={'request': request}  # Add this line
+            )
             if serializer.is_valid():
-                user = get_object_or_404(User, id=user_id)
                 serializer.save(user=user)
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class TaskViewSet(viewsets.ModelViewSet):
     serializer_class = TaskSerializer
@@ -72,7 +77,8 @@ class TaskViewSet(viewsets.ModelViewSet):
     lookup_field = 'pk'
     
     def get_queryset(self):
-        goal_id = self.kwargs.get('goal_pk')  # for nested router
+        # Use 'goal_id' from URL kwargs instead of 'goal_pk'
+        goal_id = self.kwargs.get('goal_id')
         if goal_id:
             return Task.objects.filter(goal_id=goal_id)
         return Task.objects.all()
@@ -83,7 +89,8 @@ class TaskViewSet(viewsets.ModelViewSet):
         return TaskSerializer
     
     def perform_create(self, serializer):
-        goal_id = self.kwargs.get('goal_pk')
+        # Capture 'goal_id' from URL
+        goal_id = self.kwargs.get('goal_id')
         if goal_id:
             goal = get_object_or_404(Goal, id=goal_id)
             serializer.save(goal=goal)
@@ -105,9 +112,11 @@ class GroupGoalViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return Goal.objects.filter(is_group_goal=True).distinct()
     
-    def perform_create(self, serializer):
-        serializer.save()
-    
+    # def perform_create(self, serializer):
+    #     user = get_object_or_404(User, id=self.request.data.get('user_id'))
+    #     member_ids = self.request.data.get('member_ids', [])
+    #     serializer.save(user=user, member_ids=member_ids)
+
     @action(detail=True, methods=['put'], url_path='members')
     def update_members(self, request, pk=None):
         """Add/remove group members"""

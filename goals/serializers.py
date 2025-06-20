@@ -51,18 +51,20 @@ class GoalSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Parent goal must belong to the same user")
         return value
 
+# goals/serializers.py (partial update)
 class GoalCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Goal
         fields = ['name', 'description', 'parent', 'priority', 'deadline', 'is_group_goal']
     
     def create(self, validated_data):
-        # Handle case where request context might not be available
-        user = validated_data.get('user')
-        if not user:
-            if 'request' in self.context and hasattr(self.context['request'], 'user') and self.context['request'].user.is_authenticated:
-                validated_data['user'] = self.context['request'].user
+        # Safely access request from context
+        request = self.context.get('request')
+        if request and hasattr(request, 'user'):
+            # Use request.user if needed
+            pass  # Your custom logic here
         return super().create(validated_data)
+
 
 class GoalTreeSerializer(serializers.ModelSerializer):
     """Serializer for tree visualization"""
@@ -110,6 +112,9 @@ class TaskCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Task
         fields = ['title', 'description', 'goal', 'is_recurring', 'due_date', 'estimated_time']
+        extra_kwargs = {
+            'goal': {'required': False}  # <-- Add this line
+        }
     
     def validate_goal(self, value):
         """Ensure task belongs to a goal owned by the user"""
@@ -123,22 +128,27 @@ class GroupGoalCreateSerializer(serializers.ModelSerializer):
         write_only=True,
         required=False
     )
-    
+
     class Meta:
         model = Goal
         fields = ['name', 'description', 'priority', 'deadline', 'member_ids']
-    
+        extra_kwargs = {'user': {'read_only': True}}  # Add this
+
     def create(self, validated_data):
         member_ids = validated_data.pop('member_ids', [])
-        validated_data['user'] = self.context['request'].user
-        validated_data['is_group_goal'] = True
+        request = self.context.get('request')
         
-        goal = super().create(validated_data)
+        # Create and save the Goal first
+        goal = Goal.objects.create(
+            user=request.user,
+            is_group_goal=True,
+            **validated_data
+        )
         
         # Add owner as first member
         GroupGoalMember.objects.create(
             goal=goal,
-            user=self.context['request'].user,
+            user=request.user,
             role='owner'
         )
         

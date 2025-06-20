@@ -1,0 +1,23 @@
+Feature tested: Creating a time entry for a user via the API
+Type of test: API/Backend test (Django REST Framework APITestCase)
+Test file path: backend/time_tracking/tests.py
+
+Instructions to run the test:
+1. Make sure you have Django and Django REST Framework installed.
+2. From your project root, run:
+
+   python manage.py test time_tracking
+
+This will execute the test_create_time_entry_for_user test, which verifies that a time entry can be created for a user using the API and that the returned data is correct. 
+
+Feature tested: Creating a goal for a user via the API
+Type of test: API/Backend test (Django REST Framework APITestCase)
+Test file path: backend/goals/tests.py
+
+Instructions to run the test:
+1. Make sure you have Django and Django REST Framework installed.
+2. From your project root, run:
+
+   python manage.py test goals
+
+This will execute the test_create_goal_for_user test, which verifies that a goal can be created for a user using the API and that the returned data is correct. 

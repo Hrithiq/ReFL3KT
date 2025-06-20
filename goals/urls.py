@@ -14,11 +14,12 @@ goals_router.register(r'tasks', views.TaskViewSet, basename='goal-tasks')
 
 urlpatterns = [
     path('users/<int:user_id>/', include([
-        path('goals/', views.GoalViewSet.as_view({'get': 'by_user', 'post': 'by_user'})),
+        path('goals/', views.GoalViewSet.as_view({'post': 'by_user', 'get': 'by_user',})),
         path('goals/root/', views.GoalViewSet.as_view({'get': 'root_goals'})),
         path('goals/<int:pk>/', views.GoalViewSet.as_view({
             'get': 'retrieve',
             'put': 'update',
+            'post': 'create',
             'patch': 'partial_update',
             'delete': 'destroy'
         })),
@@ -26,7 +27,7 @@ urlpatterns = [
         path('goals/<int:pk>/tree_widget/', views.GoalViewSet.as_view({'get': 'tree_widget'})),
         path('goals/<int:goal_id>/tasks/', views.TaskViewSet.as_view({'get': 'list', 'post': 'create'})),
         path('goals/<int:goal_id>/tasks/<int:pk>/', views.TaskViewSet.as_view({
-            'get': 'retrieve',
+            'get': 'retrieve',  
             'put': 'update',
             'patch': 'partial_update',
             'delete': 'destroy'

@@ -55,17 +55,18 @@ class Goal(models.Model):
         return f"{self.name} ({self.user.username})"
     
     def save(self, *args, **kwargs):
-        # Auto-update progress based on subgoals
-        if self.subgoals.exists():
-            total_progress = sum(subgoal.progress for subgoal in self.subgoals.all())
-            self.progress = total_progress / self.subgoals.count()
-        
-        # Mark as completed if progress is 100%
-        if self.progress >= 100.0 and self.status != 'completed':
-            self.status = 'completed'
-            self.completed_at = timezone.now()
+        # Only update progress if goal exists in DB
+        if self.pk:
+            if self.subgoals.exists():
+                total_progress = sum(subgoal.progress for subgoal in self.subgoals.all())
+                self.progress = total_progress / self.subgoals.count()
+            
+            if self.progress >= 100.0 and self.status != 'completed':
+                self.status = 'completed'
+                self.completed_at = timezone.now()
         
         super().save(*args, **kwargs)
+
     
     @property
     def is_root(self):
