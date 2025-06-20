@@ -3,30 +3,45 @@ from .models import Category, TimeEntry
 
 class CategorySerializer(serializers.ModelSerializer):
     category_id = serializers.IntegerField(source='id', read_only=True)
-    name = serializers.CharField(source='_name')
-    color = serializers.CharField(source='_color')
-
+    
     class Meta:
         model = Category
         fields = ['category_id', 'name', 'color']
-
+        # Exclude 'id' from being writable - let Django auto-generate it
+        read_only_fields = ['category_id']
+    
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        # Convert to Flutter format
         return {
             '_categoryId': data['category_id'],
             '_name': data['name'],
             '_color': data['color']
         }
-
+    
+    def create(self, validated_data):
+        # Remove any 'id' field that might have been passed
+        validated_data.pop('id', None)
+        validated_data.pop('category_id', None)
+        
+        # Don't pass any 'id' field - let Django auto-generate it
+        return Category.objects.create(
+            name=validated_data['name'],
+            color=validated_data['color'],
+            user_id=validated_data.get('user_id')  # This should be set in the view
+        )
 class TimeEntrySerializer(serializers.ModelSerializer):
     time_entry_id = serializers.IntegerField(source='id', read_only=True)
-    category_id = serializers.IntegerField(source='category.id', read_only=True)
+    category_id = serializers.PrimaryKeyRelatedField(
+        source='category', 
+        queryset=Category.objects.all(), 
+        required=False, 
+        allow_null=True
+    )
     category_name = serializers.CharField(source='category.name', read_only=True)
-    description = serializers.CharField(source='_description')
-    start_time = serializers.DateTimeField(source='_startTime')
-    end_time = serializers.DateTimeField(source='_endTime')
-
+    description = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    start_time = serializers.DateTimeField(required=False, allow_null=True)
+    end_time = serializers.DateTimeField(required=False, allow_null=True)
+    
     class Meta:
         model = TimeEntry
         fields = [
@@ -38,10 +53,9 @@ class TimeEntrySerializer(serializers.ModelSerializer):
             'category_name',
             'is_active'
         ]
-
+    
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        # Convert to Flutter format
         return {
             '_timeEntryId': str(data['time_entry_id']),
             '_description': data['description'],
@@ -50,36 +64,19 @@ class TimeEntrySerializer(serializers.ModelSerializer):
             '_categoryId': data['category_id'],
             '_categoryName': data['category_name']
         }
-
-    def to_internal_value(self, data):
-        # Convert from Flutter format to internal format
-        internal_data = {
-            'description': data.get('_description', ''),
-            'start_time': data.get('_startTime'),
-            'end_time': data.get('_endTime'),
-            'category': data.get('_categoryId')
-        }
-        return super().to_internal_value(internal_data)
-
+    
     def validate(self, data):
-        # Validate start_time is required
-        if 'start_time' not in data:
-            raise serializers.ValidationError({"start_time": "This field is required."})
-
-        # Only validate end_time if both start_time and end_time are provided
-        if 'end_time' in data:
+        if data.get('start_time') and data.get('end_time'):
             if data['start_time'] >= data['end_time']:
                 raise serializers.ValidationError("End time must be after start time")
-            
-        # Check for existing active entry when creating a new one
-        if not self.instance and data.get('is_active', True):
-            if TimeEntry.objects.filter(is_active=True).exists():
-                raise serializers.ValidationError(
-                    "There is already an active time entry. Please end it before starting a new one."
-                )
-            
         return data
-
+    
     def create(self, validated_data):
-        # Create time entry without user
-        return TimeEntry.objects.create(**validated_data)
+        return TimeEntry.objects.create(
+            description=validated_data.get('description'),
+            start_time=validated_data.get('start_time'),
+            end_time=validated_data.get('end_time'),
+            category=validated_data.get('category'),
+            user_id=validated_data.get('user_id'),  # Add this line
+            is_active=validated_data.get('is_active', True)
+    )

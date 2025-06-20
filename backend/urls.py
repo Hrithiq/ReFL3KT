@@ -24,10 +24,7 @@ schema_view = get_schema_view(
     openapi.Info(
         title="ReFL3KT API",
         default_version='v1',
-        description="API for ReFL3KT productivity app",
-        terms_of_service="https://www.google.com/policies/terms/",
-        contact=openapi.Contact(email="contact@refl3kt.local"),
-        license=openapi.License(name="BSD License"),
+        description="API for ReFL3KT time tracking and productivity app",
     ),
     public=True,
     permission_classes=(permissions.AllowAny,),
@@ -36,7 +33,6 @@ schema_view = get_schema_view(
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('time_tracking.urls')),
-    path('api/', include('goals.urls')),
     path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
     path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
 ]
