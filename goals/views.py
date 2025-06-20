@@ -58,9 +58,11 @@ class GoalViewSet(viewsets.ModelViewSet):
             serializer = self.get_serializer(goals, many=True)
             return Response(serializer.data)
         elif request.method == 'POST':
-            serializer = GoalCreateSerializer(data=request.data)
+            data = request.data.copy()
+            serializer = GoalCreateSerializer(data=data, context={'request': request})
             if serializer.is_valid():
-                serializer.save(user_id=user_id)
+                user = get_object_or_404(User, id=user_id)
+                serializer.save(user=user)
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -70,7 +72,7 @@ class TaskViewSet(viewsets.ModelViewSet):
     lookup_field = 'pk'
     
     def get_queryset(self):
-        goal_id = self.kwargs.get('goal_id')
+        goal_id = self.kwargs.get('goal_pk')  # for nested router
         if goal_id:
             return Task.objects.filter(goal_id=goal_id)
         return Task.objects.all()
@@ -81,7 +83,7 @@ class TaskViewSet(viewsets.ModelViewSet):
         return TaskSerializer
     
     def perform_create(self, serializer):
-        goal_id = self.kwargs.get('goal_id')
+        goal_id = self.kwargs.get('goal_pk')
         if goal_id:
             goal = get_object_or_404(Goal, id=goal_id)
             serializer.save(goal=goal)
@@ -101,12 +103,6 @@ class GroupGoalViewSet(viewsets.ModelViewSet):
     lookup_field = 'pk'
     
     def get_queryset(self):
-        user_id = self.kwargs.get('user_id')
-        if user_id:
-            return Goal.objects.filter(
-                is_group_goal=True,
-                group_members__user_id=user_id
-            ).distinct()
         return Goal.objects.filter(is_group_goal=True).distinct()
     
     def perform_create(self, serializer):
@@ -142,6 +138,6 @@ class GroupGoalViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'], url_path='(?P<user_id>[^/.]+)')
     def user_group_goals(self, request, user_id=None):
         """Get all group goals for a user"""
-        goals = self.get_queryset()
+        goals = self.get_queryset().filter(group_members__user_id=user_id)
         serializer = GoalSerializer(goals, many=True)
         return Response(serializer.data)

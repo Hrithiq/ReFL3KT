@@ -57,7 +57,11 @@ class GoalCreateSerializer(serializers.ModelSerializer):
         fields = ['name', 'description', 'parent', 'priority', 'deadline', 'is_group_goal']
     
     def create(self, validated_data):
-        validated_data['user'] = self.context['request'].user
+        # Handle case where request context might not be available
+        user = validated_data.get('user')
+        if not user:
+            if 'request' in self.context and hasattr(self.context['request'], 'user') and self.context['request'].user.is_authenticated:
+                validated_data['user'] = self.context['request'].user
         return super().create(validated_data)
 
 class GoalTreeSerializer(serializers.ModelSerializer):
