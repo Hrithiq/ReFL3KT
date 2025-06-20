@@ -96,8 +96,8 @@ class GoalAPITests(APITestCase):
         children = response.data['immediate_children']
         self.assertIn('Goal B', children)  # Subgoal
         self.assertIn('Goal C', children)  # Subgoal
-        self.assertIn(f'task {self.task1.id} of goal {self.goal_a.id}', children)  # Task
-        self.assertIn(f'task {self.task2.id} of goal {self.goal_a.id}', children)  # Task
+        self.assertIn('Task 1', children)  # Task
+        self.assertIn('Task 2', children)  # Task
         
         # Goal B should have time from task3 (30 minutes = 0.5 hours)
         self.assertAlmostEqual(children['Goal B'], 0.5, places=1)
@@ -106,7 +106,7 @@ class GoalAPITests(APITestCase):
         self.assertEqual(children['Goal C'], 0)
         
         # Task 1 should have 1 hour (60 minutes)
-        self.assertAlmostEqual(children[f'task {self.task1.id} of goal {self.goal_a.id}'], 60.0, places=1)
+        self.assertAlmostEqual(children['Task 1'], 60.0, places=1)
         
         # Task 2 should have 0 time (no time entries)
-        self.assertEqual(children[f'task {self.task2.id} of goal {self.goal_a.id}'], 0)
+        self.assertEqual(children['Task 2'], 0)

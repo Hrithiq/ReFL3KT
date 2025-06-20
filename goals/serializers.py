@@ -101,7 +101,7 @@ class GoalAnalyticsSerializer(serializers.ModelSerializer):
         
         # Add direct tasks with their time spent
         for task in obj.tasks.all():
-            result[f"task {task.id} of goal {obj.id}"] = task.actual_time_spent
+            result[task.title] = task.actual_time_spent
         
         return result
     
