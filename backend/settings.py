@@ -52,7 +52,8 @@ INSTALLED_APPS = [
     'time_tracking',
     'goals',
     'journal',
-    'analytics'
+    'analytics',
+    'scheduler',
 ]
 
 MIDDLEWARE = [
