@@ -1,18 +1,11 @@
 from rest_framework import serializers
-from .models import Goal, Task, GroupGoalMember
+from .models import Goal, Task
 from django.contrib.auth.models import User
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'username', 'email']
-
-class GroupGoalMemberSerializer(serializers.ModelSerializer):
-    user = UserSerializer(read_only=True)
-    
-    class Meta:
-        model = GroupGoalMember
-        fields = ['id', 'user', 'role', 'joined_at']
 
 class TaskSerializer(serializers.ModelSerializer):
     actual_time_spent = serializers.ReadOnlyField()
@@ -30,7 +23,6 @@ class TaskSerializer(serializers.ModelSerializer):
 class GoalSerializer(serializers.ModelSerializer):
     subgoals = serializers.SerializerMethodField()
     tasks = TaskSerializer(many=True, read_only=True)
-    group_members = GroupGoalMemberSerializer(many=True, read_only=True)
     parent_name = serializers.CharField(source='parent.name', read_only=True)
     
     class Meta:
@@ -38,8 +30,7 @@ class GoalSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'name', 'description', 'user', 'parent', 'parent_name',
             'status', 'priority', 'created_at', 'updated_at', 'deadline',
-            'completed_at', 'progress', 'is_group_goal', 'subgoals',
-            'tasks', 'group_members'
+            'completed_at', 'progress', 'subgoals', 'tasks'
         ]
         read_only_fields = ['created_at', 'updated_at', 'completed_at', 'progress']
     
@@ -54,20 +45,31 @@ class GoalSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Parent goal must belong to the same user")
         return value
 
-# goals/serializers.py (partial update)
 class GoalCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Goal
-        fields = ['name', 'description', 'parent', 'priority', 'deadline', 'is_group_goal']
+        fields = ['name', 'description', 'parent', 'priority', 'deadline']
+    
+    def validate_parent(self, value):
+        """Ensure parent goal belongs to the same user"""
+        user = self.context.get('user')
+        if value and user and value.user != user:
+            raise serializers.ValidationError("Parent goal must belong to the same user")
+        return value
     
     def create(self, validated_data):
-        # Safely access request from context
-        request = self.context.get('request')
-        if request and hasattr(request, 'user'):
-            # Use request.user if needed
-            pass  # Your custom logic here
-        return super().create(validated_data)
-
+        # Get user from context (passed from view)
+        user = self.context.get('user')
+        if user:
+            validated_data['user'] = user
+        
+        # Create and save the goal
+        goal = Goal.objects.create(**validated_data)
+        return goal
+    
+    def to_representation(self, instance):
+        """Use GoalSerializer for response representation"""
+        return GoalSerializer(instance, context=self.context).data
 
 class GoalTreeSerializer(serializers.ModelSerializer):
     """Serializer for tree visualization"""
@@ -114,7 +116,7 @@ class TaskCreateSerializer(serializers.ModelSerializer):
         model = Task
         fields = ['title', 'description', 'goal', 'category', 'is_recurring', 'due_date', 'estimated_time']
         extra_kwargs = {
-            'goal': {'required': False}  # <-- Add this line
+            'goal': {'required': False}
         }
     
     def validate_goal(self, value):
@@ -122,47 +124,3 @@ class TaskCreateSerializer(serializers.ModelSerializer):
         if value.user != self.context['request'].user:
             raise serializers.ValidationError("Task must belong to a goal owned by you")
         return value
-
-class GroupGoalCreateSerializer(serializers.ModelSerializer):
-    member_ids = serializers.ListField(
-        child=serializers.IntegerField(),
-        write_only=True,
-        required=False
-    )
-
-    class Meta:
-        model = Goal
-        fields = ['name', 'description', 'priority', 'deadline', 'member_ids']
-        extra_kwargs = {'user': {'read_only': True}}  # Add this
-
-    def create(self, validated_data):
-        member_ids = validated_data.pop('member_ids', [])
-        request = self.context.get('request')
-        
-        # Create and save the Goal first
-        goal = Goal.objects.create(
-            user=request.user,
-            is_group_goal=True,
-            **validated_data
-        )
-        
-        # Add owner as first member
-        GroupGoalMember.objects.create(
-            goal=goal,
-            user=request.user,
-            role='owner'
-        )
-        
-        # Add other members
-        for user_id in member_ids:
-            try:
-                user = User.objects.get(id=user_id)
-                GroupGoalMember.objects.create(
-                    goal=goal,
-                    user=user,
-                    role='member'
-                )
-            except User.DoesNotExist:
-                pass
-        
-        return goal

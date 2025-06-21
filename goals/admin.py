@@ -1,26 +1,34 @@
 from django.contrib import admin
-from .models import Goal, Task, GroupGoalMember
+from .models import Goal, Task
 
-@admin.register(Goal)
+class TaskInline(admin.TabularInline):
+    model = Task
+    extra = 1
+
 class GoalAdmin(admin.ModelAdmin):
-    list_display = ['name', 'user', 'parent', 'status', 'priority', 'progress', 'is_group_goal', 'created_at']
-    list_filter = ['status', 'priority', 'is_group_goal', 'created_at']
+    list_display = ['name', 'user', 'status', 'priority', 'progress', 'created_at']
+    list_filter = ['status', 'priority', 'created_at']
     search_fields = ['name', 'description', 'user__username']
-    readonly_fields = ['created_at', 'updated_at', 'completed_at']
-    ordering = ['-created_at']
+    readonly_fields = ['created_at', 'updated_at', 'completed_at', 'progress']
+    inlines = [TaskInline]
+    
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('name', 'description', 'user', 'parent')
+        }),
+        ('Status & Priority', {
+            'fields': ('status', 'priority', 'progress')
+        }),
+        ('Timeline', {
+            'fields': ('deadline', 'created_at', 'updated_at', 'completed_at')
+        }),
+    )
 
-@admin.register(Task)
 class TaskAdmin(admin.ModelAdmin):
-    list_display = ['title', 'goal', 'status', 'is_recurring', 'due_date', 'estimated_time', 'created_at']
+    list_display = ['title', 'goal', 'status', 'estimated_time', 'created_at']
     list_filter = ['status', 'is_recurring', 'created_at']
     search_fields = ['title', 'description', 'goal__name']
-    readonly_fields = ['created_at', 'updated_at', 'completed_at']
-    ordering = ['-created_at']
+    readonly_fields = ['created_at', 'updated_at', 'completed_at', 'actual_time_spent']
 
-@admin.register(GroupGoalMember)
-class GroupGoalMemberAdmin(admin.ModelAdmin):
-    list_display = ['goal', 'user', 'role', 'joined_at']
-    list_filter = ['role', 'joined_at']
-    search_fields = ['goal__name', 'user__username']
-    readonly_fields = ['joined_at']
-    ordering = ['-joined_at']
+admin.site.register(Goal, GoalAdmin)
+admin.site.register(Task, TaskAdmin)

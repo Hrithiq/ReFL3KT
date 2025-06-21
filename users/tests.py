@@ -1,3 +1,17 @@
+"""
+User API Tests
+
+This module contains comprehensive tests for the user creation and retrieval endpoints.
+Tests cover both successful operations and error handling scenarios.
+
+Endpoints tested:
+- POST /api/create/ - Create a new user
+- GET /api/<user_id>/ - Get user details by ID
+
+To run these tests:
+    python manage.py test users
+"""
+
 from django.test import TestCase
 from django.urls import reverse
 from django.contrib.auth.models import User
@@ -6,8 +20,18 @@ from rest_framework import status
 from django.utils import timezone
 
 class UserCreationTests(APITestCase):
+    """
+    Test suite for user creation endpoint (POST /api/create/)
+    
+    Tests cover:
+    - Successful user creation with valid data
+    - Password validation and confirmation
+    - Duplicate username handling
+    - Required field validation
+    """
+    
     def setUp(self):
-        """Set up test data"""
+        """Set up test data for user creation tests"""
         self.user = User.objects.create_user(
             username='testuser',
             first_name='Test',
@@ -18,7 +42,15 @@ class UserCreationTests(APITestCase):
         self.user_id = self.user.id
 
     def test_create_user_success(self):
-        """Test successful user creation"""
+        """
+        Test successful user creation via API
+        
+        Verifies:
+        - User is created with correct data
+        - Response contains all expected fields
+        - User is actually saved to database
+        - Default values are set correctly
+        """
         url = '/api/create/'
         data = {
             'username': 'newuser',
@@ -31,6 +63,7 @@ class UserCreationTests(APITestCase):
         
         response = self.client.post(url, data, format='json')
         
+        # Verify response status and data
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['username'], 'newuser')
         self.assertEqual(response.data['first_name'], 'New')
@@ -48,7 +81,12 @@ class UserCreationTests(APITestCase):
         self.assertEqual(user.email, 'new@example.com')
     
     def test_create_user_password_mismatch(self):
-        """Test user creation with mismatched passwords"""
+        """
+        Test user creation with mismatched passwords
+        
+        Verifies that the API correctly rejects requests where
+        password and password_confirm don't match.
+        """
         url = '/api/create/'
         data = {
             'username': 'testuser',
@@ -65,7 +103,12 @@ class UserCreationTests(APITestCase):
         self.assertIn('Passwords don\'t match', str(response.data))
     
     def test_create_user_duplicate_username(self):
-        """Test user creation with duplicate username"""
+        """
+        Test user creation with duplicate username
+        
+        Verifies that the API correctly rejects requests to create
+        users with usernames that already exist.
+        """
         # Try to create second user with same username
         url = '/api/create/'
         data = {
@@ -83,7 +126,12 @@ class UserCreationTests(APITestCase):
         self.assertIn('username', response.data['details'])
     
     def test_create_user_missing_required_fields(self):
-        """Test user creation with missing required fields"""
+        """
+        Test user creation with missing required fields
+        
+        Verifies that the API correctly rejects requests that are
+        missing required fields (first_name, last_name, email).
+        """
         url = '/api/create/'
         data = {
             'username': 'testuser',
@@ -100,8 +148,17 @@ class UserCreationTests(APITestCase):
         self.assertIn('email', response.data['details'])
 
 class UserDetailsTests(APITestCase):
+    """
+    Test suite for user details retrieval endpoint (GET /api/<user_id>/)
+    
+    Tests cover:
+    - Successful user details retrieval
+    - Handling of non-existent users
+    - Handling of invalid user IDs
+    """
+    
     def setUp(self):
-        """Set up test data"""
+        """Set up test data for user details tests"""
         self.user = User.objects.create_user(
             username='testuser',
             first_name='Test',
@@ -114,11 +171,19 @@ class UserDetailsTests(APITestCase):
         self.user_id = self.user.id
 
     def test_get_user_details_success(self):
-        """Test successful user details retrieval"""
+        """
+        Test successful user details retrieval via API
+        
+        Verifies:
+        - User details are returned correctly
+        - All expected fields are present
+        - Field values match the database
+        """
         url = f'/api/{self.user_id}/'
         
         response = self.client.get(url)
         
+        # Verify response status and data
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['id'], self.user_id)
         self.assertEqual(response.data['username'], 'testuser')
@@ -132,7 +197,12 @@ class UserDetailsTests(APITestCase):
         self.assertIn('last_login', response.data)
 
     def test_get_user_details_not_found(self):
-        """Test user details retrieval for non-existent user"""
+        """
+        Test user details retrieval for non-existent user
+        
+        Verifies that the API returns a 404 status when
+        trying to retrieve details for a user that doesn't exist.
+        """
         url = '/api/99999/'  # Non-existent user ID
         
         response = self.client.get(url)
@@ -140,7 +210,12 @@ class UserDetailsTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_get_user_details_invalid_id(self):
-        """Test user details retrieval with invalid user ID"""
+        """
+        Test user details retrieval with invalid user ID
+        
+        Verifies that the API handles invalid user IDs (non-integer)
+        gracefully and returns appropriate error responses.
+        """
         url = '/api/abc/'  # Invalid user ID (not an integer)
         
         response = self.client.get(url)

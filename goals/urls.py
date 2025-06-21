@@ -6,7 +6,6 @@ from . import views
 # Main router
 router = DefaultRouter()
 router.register(r'goals', views.GoalViewSet, basename='goal')
-router.register(r'group_goals', views.GroupGoalViewSet, basename='group-goal')
 
 # Nested router for tasks under goals
 goals_router = routers.NestedDefaultRouter(router, r'goals', lookup='goal')
@@ -33,13 +32,4 @@ urlpatterns = [
             'delete': 'destroy'
         })),
     ])),
-    path('group_goals/', views.GroupGoalViewSet.as_view({'get': 'list', 'post': 'create'})),
-    path('group_goals/<int:pk>/', views.GroupGoalViewSet.as_view({
-        'get': 'retrieve',
-        'put': 'update',
-        'patch': 'partial_update',
-        'delete': 'destroy'
-    })),
-    path('group_goals/<int:pk>/members/', views.GroupGoalViewSet.as_view({'put': 'update_members'})),
-    path('group_goals/user/<int:user_id>/', views.GroupGoalViewSet.as_view({'get': 'user_group_goals'})),
 ]

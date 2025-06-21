@@ -1,0 +1,20 @@
+Feature tested: Creating and retrieving users via the API
+Type of test: API/Backend test (Django REST Framework APITestCase)
+Test file path: backend/users/tests.py
+
+Instructions to run the test:
+1. Make sure you have Django and Django REST Framework installed.
+2. From your project root, run:
+
+   python manage.py test users
+
+This will execute the following tests:
+- test_create_user_success: Verifies that a user can be created using the API and that the returned data is correct
+- test_create_user_password_mismatch: Verifies that password confirmation validation works correctly
+- test_create_user_duplicate_username: Verifies that duplicate usernames are rejected
+- test_create_user_missing_required_fields: Verifies that required fields are enforced
+- test_get_user_details_success: Verifies that user details can be retrieved by ID
+- test_get_user_details_not_found: Verifies that non-existent users return 404
+- test_get_user_details_invalid_id: Verifies that invalid user IDs are handled properly
+
+The tests verify both the POST /api/create/ endpoint for user creation and the GET /api/<user_id>/ endpoint for user retrieval. 
