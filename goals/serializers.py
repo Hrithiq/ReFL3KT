@@ -39,23 +39,11 @@ class GoalSerializer(serializers.ModelSerializer):
         subgoals = obj.subgoals.all()
         return GoalSerializer(subgoals, many=True, context=self.context).data
     
-    def validate_parent(self, value):
-        """Ensure parent goal belongs to the same user"""
-        if value and value.user != self.context['request'].user:
-            raise serializers.ValidationError("Parent goal must belong to the same user")
-        return value
 
 class GoalCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Goal
         fields = ['name', 'description', 'parent', 'priority', 'deadline']
-    
-    def validate_parent(self, value):
-        """Ensure parent goal belongs to the same user"""
-        user = self.context.get('user')
-        if value and user and value.user != user:
-            raise serializers.ValidationError("Parent goal must belong to the same user")
-        return value
     
     def create(self, validated_data):
         # Get user from context (passed from view)

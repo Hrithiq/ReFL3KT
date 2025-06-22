@@ -106,8 +106,8 @@ else:
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
             'NAME': 'postgres',
-            'USER': 'postgres.iaemrjalkwqtorvnzwcd',
-            'PASSWORD': 'h5Cjqev3OTit6J6B',
+            'USER': 'postgres.jtarhopkcaccbrrpfjet',
+            'PASSWORD': 'refl3kt',
             'HOST': 'aws-0-ap-south-1.pooler.supabase.com',
             'PORT': '6543',
         }
